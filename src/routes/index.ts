@@ -1,0 +1,21 @@
+import { Router } from "express";
+import ocrRoutes from "../ocr/ocr.routes";
+import exampleRoutes from "./example.routes";
+import reporteRoutes from "./reporte.routes";
+import usuarioRoutes from "./usuario.routes";
+import analisisRoutes from "./analisis.routes";
+import cuadraturRoutes from "../api/cuadratur.routes";
+
+const router = Router();
+
+router.use("/cuadratur", cuadraturRoutes);
+router.use("/ocr", ocrRoutes);
+router.use("/example", exampleRoutes);
+router.use("/reporte", reporteRoutes);
+router.use("/usuario", usuarioRoutes);
+router.use("/analisis", analisisRoutes);
+
+
+
+
+export default router;

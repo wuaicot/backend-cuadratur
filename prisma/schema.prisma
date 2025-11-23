@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Usuario {
+  id       Int      @id @default(autoincrement())
+  nombre   String
+  creadoEn DateTime @default(now())
+  turnos   Turno[]
+}
+
+model Turno {
+  id          Int                  @id @default(autoincrement())
+  fecha       DateTime
+  tipo        String
+  usuarioId   Int
+  usuario     Usuario              @relation(fields: [usuarioId], references: [id])
+  ventas      VentaRegistro[]
+  inventarios InventarioRegistro[]
+}
+
+model Producto {
+  id      Int             @id @default(autoincrement())
+  codigoZ String          @unique
+  nombre  String
+  recetas Receta[]
+  ventas  VentaRegistro[]
+}
+
+model Ingrediente {
+  id          Int                  @id @default(autoincrement())
+  nombre      String
+  unidad      String
+  recetas     Receta[]
+  inventarios InventarioRegistro[]
+}
+
+model Receta {
+  id            Int         @id @default(autoincrement())
+  productoId    Int
+  ingredienteId Int
+  cantidad      Float
+  producto      Producto    @relation(fields: [productoId], references: [id])
+  ingrediente   Ingrediente @relation(fields: [ingredienteId], references: [id])
+}
+
+model VentaRegistro {
+  id         Int      @id @default(autoincrement())
+  turnoId    Int
+  productoId Int
+  cantidad   Int
+  turno      Turno    @relation(fields: [turnoId], references: [id])
+  producto   Producto @relation(fields: [productoId], references: [id])
+}
+
+model InventarioRegistro {
+  id            Int         @id @default(autoincrement())
+  turnoId       Int
+  ingredienteId Int
+  saldoInicial  Float
+  entradas      Float
+  devoluciones  Float
+  saldoFinal    Float
+  turno         Turno       @relation(fields: [turnoId], references: [id])
+  ingrediente   Ingrediente @relation(fields: [ingredienteId], references: [id])
+}
+
+model Example {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+}
+
+model ReporteZ {
+  id             Int      @id @default(autoincrement())
+  fechaBase      DateTime
+  turno          Int
+  totalVentas    Float
+  fechaImpresion DateTime
+  createdAt      DateTime @default(now())
+}
+
+model Analisis {
+  id        Int      @id @default(autoincrement())
+  fecha     DateTime
+  data      Json
+  turno     String?
+  createdAt DateTime @default(now())
+}

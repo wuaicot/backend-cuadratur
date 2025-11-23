@@ -1,39 +1,49 @@
 import { Request, Response } from "express";
 
-let CuadraturOrchestrator: any;
+// IMPORTACIÓN FIJA Y CORRECTA DEL ORCHESTRATOR
+import { CuadraturOrchestrator as OrchestratorClass } from "../application/cuadratur.orchestrator";
+
+let orchestrator: any;
+
+// Intentar instanciar. Si falla, usar mock.
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  CuadraturOrchestrator = require("../application/cuadratur/cuadratur.orchestrator")
-    .CuadraturOrchestrator;
+  orchestrator = new OrchestratorClass();
 } catch (error) {
-  console.error("Error CRÍTICO: No se pudo cargar CuadraturOrchestrator. Usando implementación mock.", error);
-  CuadraturOrchestrator = class {
-    async ejecutar(_: any) {
+  console.error(
+    "Error CRÍTICO: No se pudo cargar CuadraturOrchestrator. Usando implementación mock.",
+    error
+  );
+
+  class MockOrchestrator {
+    async ejecutar() {
       return { fecha: new Date().toISOString(), items: [] };
     }
     historial() {
       return [];
     }
-    obtenerAnalisis(_: number) {
+    obtenerAnalisis() {
       return null;
     }
-  };
-}
+  }
 
-const orchestrator = new CuadraturOrchestrator();
+  orchestrator = new MockOrchestrator();
+}
 
 export class CuadraturController {
   async analizar(req: Request, res: Response) {
     try {
-      const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+      const files = req.files as {
+        [fieldname: string]: Express.Multer.File[];
+      };
 
-      const reporteZFile = files['reporteZ']?.[0];
-      const planillaCajaFile = files['planillaCaja']?.[0];
-      const planillaCocinaFile = files['planillaCocina']?.[0];
+      const reporteZFile = files["reporteZ"]?.[0];
+      const planillaCajaFile = files["planillaCaja"]?.[0];
+      const planillaCocinaFile = files["planillaCocina"]?.[0];
 
       if (!reporteZFile || !planillaCajaFile || !planillaCocinaFile) {
         return res.status(400).json({
-          error: "Debe enviar los tres archivos requeridos: reporteZ, planillaCaja y planillaCocina."
+          error:
+            "Debe enviar los tres archivos requeridos: reporteZ, planillaCaja y planillaCocina.",
         });
       }
 
@@ -48,7 +58,8 @@ export class CuadraturController {
 
       res.json(result);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Error desconocido.";
+      const errorMessage =
+        err instanceof Error ? err.message : "Error desconocido.";
       res.status(400).json({ error: errorMessage });
     }
   }

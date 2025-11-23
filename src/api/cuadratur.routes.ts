@@ -1,3 +1,4 @@
+// src/api/cuadratur.routes.ts
 import { Router } from "express";
 import multer from "multer";
 import { CuadraturController } from "./cuadratur.controller";

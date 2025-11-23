@@ -1,3 +1,4 @@
+// src/data/inventario.ts
 export type IngredienteDef = {
   nombre: string;
   cantidad: number;
@@ -289,5 +290,5 @@ export const INGREDIENTES_MASTER: Record<
   "Carne Ave Personal": { nombre: "Carne Ave Personal", unidad: "un" },
   "Carne Ave .Gigante": { nombre: "Carne Ave .Gigante", unidad: "un" },
   "Queso laminado": { nombre: "Queso laminado", unidad: "un" },
-  // extiende según tus insumos reales
+  
 };

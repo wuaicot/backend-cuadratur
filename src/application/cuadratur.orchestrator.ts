@@ -1,79 +1,29 @@
-import { AnalisisService } from "../domain/analysis/analisis.service";
 import { OCRService } from "../ocr/ocr.service";
-import path from "path";
-import fs from "fs/promises";
-import { v4 as uuidv4 } from "uuid";
-import { ParsedPlanilla, ParsedReporteZ } from "../ocr/types";
-
-type OcrReturnType<T extends "caja" | "cocina" | "reporteZ"> =
-  T extends "reporteZ" ? ParsedReporteZ : ParsedPlanilla;
-
-class HistoryService {
-  private pasos: Array<{ etiqueta: string; data: any; fecha: string }> = [];
-
-  registrarPaso(etiqueta: string, data: any) {
-    this.pasos.push({ etiqueta, data, fecha: new Date().toISOString() });
-  }
-
-  obtenerHistorial() {
-    return [...this.pasos];
-  }
-}
+import { NormalizerService } from "./normalizer/normalizer.service";
+import { ParserService } from "./parser/parser.service";
+import { ConsumptionCalculatorService } from "./calculator/consumption-calculator.service";
+import { ReconciliatorService } from "./reconciliator/reconciliator.service";
 
 export class CuadraturOrchestrator {
-  private analisisService: AnalisisService;
-  private historyService: HistoryService;
-  private ocrService: OCRService;
+  private readonly ocr: OCRService;
+  private readonly normalizer: NormalizerService;
+  private readonly parser: ParserService;
+  private readonly calculator: ConsumptionCalculatorService;
+  private readonly reconciliator: ReconciliatorService;
 
   constructor() {
-    this.analisisService = new AnalisisService();
-    this.historyService = new HistoryService();
-    this.ocrService = new OCRService();
+    this.ocr = new OCRService();
+    this.normalizer = new NormalizerService();
+    this.parser = new ParserService();
+    this.calculator = new ConsumptionCalculatorService();
+    this.reconciliator = new ReconciliatorService();
   }
 
-  private async _processSingleFile<
-    T extends "caja" | "cocina" | "reporteZ"
-  >(file: Express.Multer.File, tipo: T): Promise<OcrReturnType<T>> {
-    let tempFilePath: string | undefined;
-
-    try {
-      const fileName = `${uuidv4()}${path.extname(file.originalname)}`;
-      const uploadsDir = path.join(process.cwd(), "uploads");
-      await fs.mkdir(uploadsDir, { recursive: true });
-      tempFilePath = path.join(uploadsDir, fileName);
-
-      await fs.writeFile(tempFilePath, file.buffer);
-      this.historyService.registrarPaso(
-        `ARCHIVO_TEMPORAL_CREADO_${tipo.toUpperCase()}`,
-        { path: tempFilePath }
-      );
-
-      const ocrResult = await this.ocrService.procesarImagen(tempFilePath, tipo);
-      this.historyService.registrarPaso(
-        `OCR_COMPLETADO_${tipo.toUpperCase()}`,
-        { ocrResult }
-      );
-
-      return ocrResult as OcrReturnType<T>;
-    } finally {
-      if (tempFilePath) {
-        try {
-          await fs.unlink(tempFilePath);
-          this.historyService.registrarPaso(
-            `ARCHIVO_TEMPORAL_ELIMINADO_${tipo.toUpperCase()}`,
-            { path: tempFilePath }
-          );
-        } catch (unlinkError) {
-          console.error(
-            `Error al eliminar archivo temporal para ${tipo}:`,
-            unlinkError
-          );
-        }
-      }
-    }
-  }
-
-  async ejecutar(input: {
+  /**
+   * Método que realmente necesita el controller.
+   * Ejecuta el OCR y análisis de los 3 archivos.
+   */
+  async ejecutar(params: {
     files: {
       reporteZ: Express.Multer.File;
       planillaCaja: Express.Multer.File;
@@ -81,51 +31,56 @@ export class CuadraturOrchestrator {
     };
     usuario: string;
   }) {
-    this.historyService.registrarPaso("INICIO_CUADRATURA_MULTIPLE", input);
-    const { files } = input;
+    const { reporteZ, planillaCaja, planillaCocina } = params.files;
 
-    try {
-      const [reporteZData, planillaCajaData, planillaCocinaData] =
-        await Promise.all([
-          this._processSingleFile(files.reporteZ, "reporteZ"),
-          this._processSingleFile(files.planillaCaja, "caja"),
-          this._processSingleFile(files.planillaCocina, "cocina"),
-        ]);
+    const toBase64 = (file: Express.Multer.File) =>
+      file.buffer.toString("base64");
 
-      this.historyService.registrarPaso("OCR_TODOS_COMPLETADOS", {
-        reporteZData,
-        planillaCajaData,
-        planillaCocinaData,
-      });
+    const z = await this.processImage(toBase64(reporteZ), "reporteZ");
+    const caja = await this.processImage(toBase64(planillaCaja), "caja");
+    const cocina = await this.processImage(toBase64(planillaCocina), "cocina");
 
-      const analisisResultado = await this.analisisService.ejecutarAnalisis({
-        ocrData: {
-          reporteZ: reporteZData as ParsedReporteZ,
-          planillaCaja: planillaCajaData as ParsedPlanilla,
-          planillaCocina: planillaCocinaData as ParsedPlanilla,
-        },
-      });
-
-      this.historyService.registrarPaso("ANALISIS_COMPLETO_OK", analisisResultado);
-
-      return analisisResultado.frontendResponse;
-    } catch (error) {
-      this.historyService.registrarPaso("ERROR_GENERAL_CUADRATURA", {
-        mensaje: (error as Error).message,
-      });
-      console.error("Error en CuadraturOrchestrator.ejecutar:", error);
-      throw error;
-    }
+    return {
+      fecha: new Date().toISOString(),
+      items: [
+        { tipo: "reporteZ", data: z },
+        { tipo: "caja", data: caja },
+        { tipo: "cocina", data: cocina },
+      ],
+      usuario: params.usuario,
+    };
   }
 
-  historial() {
-    return this.historyService.obtenerHistorial();
-  }
+  /**
+   * Pipeline interno: OCR → normalizar → parsear → calcular → reconciliar
+   */
+  async processImage(base64: string, tipo: "caja" | "cocina" | "reporteZ") {
+    const ocrResult = await this.ocr.procesarImagen(base64, tipo);
 
-  obtenerAnalisis(id: number) {
-    // Si tienes lógica para obtener un análisis específico, ponla aquí.
-    return null;
+    const rawText =
+      typeof ocrResult === "string" ? ocrResult : JSON.stringify(ocrResult);
+
+    const normalized =
+      this.normalizer.normalize(rawText) ?? { cleaned: rawText };
+    if (!normalized.cleaned) normalized.cleaned = rawText;
+
+    const parsed =
+      this.parser.parseTextToSheet(normalized.cleaned) ?? { rows: [] };
+    if (!Array.isArray(parsed.rows)) parsed.rows = [];
+
+    const calculated = this.calculator.compute(parsed) ?? { results: [] };
+    if (!Array.isArray(calculated.results)) calculated.results = [];
+
+    const reconciled =
+      this.reconciliator.reconcile(calculated) ?? { reconciled: [] };
+    if (!Array.isArray(reconciled.reconciled)) reconciled.reconciled = [];
+
+    return {
+      rawText,
+      normalized,
+      parsed,
+      calculated,
+      reconciled,
+    };
   }
 }
-
-export default CuadraturOrchestrator;

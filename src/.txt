@@ -1,3 +1,5 @@
+tree /F src
+
 BACKEND-CUADRATUR/
 │
 ├── node_modules/

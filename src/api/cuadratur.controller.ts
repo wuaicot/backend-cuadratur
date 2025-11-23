@@ -1,3 +1,4 @@
+// src/api/cuadratur.controller.ts
 import { Request, Response } from "express";
 
 // IMPORTACIÓN FIJA Y CORRECTA DEL ORCHESTRATOR

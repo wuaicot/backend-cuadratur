@@ -1,12 +1,25 @@
 import sharp from "sharp";
+import fs from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 
-export async function preprocessImage(filePath: string): Promise<string> {
-  const ext = path.extname(filePath).toLowerCase();
-  const baseName = filePath.replace(ext, "");
-  const outPath = `${baseName}_cleaned.png`;
+/**
+ * Preprocesa una imagen desde un Buffer y devuelve una ruta temporal
+ * lista para ser procesada por Tesseract.
+ */
+export async function preprocessImageFromBuffer(
+  buffer: Buffer,
+  originalName: string
+): Promise<string> {
+  const tempName = `${Date.now()}-${randomUUID()}-${originalName}`;
+  const tempPath = path.join("/tmp", tempName);
+  const outPath = tempPath.replace(path.extname(tempPath), "_cleaned.png");
 
-  const inputImage = sharp(filePath);
+  // Guardar imagen original temporal
+  await fs.writeFile(tempPath, buffer);
+
+  // Procesamiento Sharp
+  const inputImage = sharp(buffer);
   const metadata = await inputImage.metadata();
   const needsUpscale = (metadata.width ?? 0) < 1000;
 
@@ -15,7 +28,7 @@ export async function preprocessImage(filePath: string): Promise<string> {
   if (needsUpscale) {
     processed = processed.resize({
       width: 1500,
-      kernel: "lanczos3",
+      kernel: "lanczos3"
     });
   }
 
@@ -27,6 +40,7 @@ export async function preprocessImage(filePath: string): Promise<string> {
     .linear(1.1, -20)
     .threshold(128);
 
+  // Imagen procesada → disco
   await processed.toFile(outPath);
 
   return outPath;

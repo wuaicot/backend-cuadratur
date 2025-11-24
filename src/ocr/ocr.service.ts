@@ -1,6 +1,5 @@
-// src/ocr/ocr.service.ts
 import Tesseract from "tesseract.js";
-import { preprocessImage } from "./preprocessImage"; // ahora sí ruta correcta
+import { preprocessImageFromBuffer } from "./preprocessImage";
 import { parsePlanilla } from "../application/parser/parsePlanilla";
 import { parseReporteZ } from "../application/parser/parseReporteZ";
 
@@ -8,34 +7,33 @@ import { ParsedPlanilla, ParsedReporteZ } from "./types";
 
 export class OCRService {
   async procesarImagen(
-    filePath: string,
+    file: Express.Multer.File,
     tipo: "caja" | "cocina" | "reporteZ"
   ): Promise<ParsedPlanilla | ParsedReporteZ> {
 
-    console.log(`[OCR] Iniciando procesamiento para tipo='${tipo}' en:`, filePath);
+    console.log(`[OCR] Iniciando procesamiento para tipo='${tipo}' - archivo=${file.originalname}`);
 
-    // 1. Preprocesamiento (convierte a PNG + limpia + normaliza)
-    const preprocessedPath = await preprocessImage(filePath);
+    // 1. Preprocesamiento desde Buffer → PNG temporal
+    const cleanedPath = await preprocessImageFromBuffer(file.buffer, file.originalname);
 
-    console.log("[OCR] Ejecutando Tesseract sobre:", preprocessedPath);
+    console.log("[OCR] Ejecutando Tesseract sobre:", cleanedPath);
 
     // 2. OCR con Tesseract
-    const { data } = await Tesseract.recognize(preprocessedPath, "spa", {
+    const { data } = await Tesseract.recognize(cleanedPath, "spa", {
       logger: () => {}
     });
 
-    // Texto RAW directo del OCR
     console.log("[OCR] Texto RAW obtenido:\n", data.text);
 
-    // 3. Normalización para evitar errores en el parser
+    // 3. Normalización antes de enviarlo al parser
     const texto = data.text
-      .replace(/[ \t]+/g, " ") // normaliza espacios múltiples
-      .replace(/\r/g, "")      // limpia caracteres invisibles
+      .replace(/[ \t]+/g, " ")
+      .replace(/\r/g, "")
       .trim();
 
     console.log("[OCR] Texto NORMALIZADO:\n", texto);
 
-    // 4. Dispatch según tipo de documento
+    // 4. Envío al parser correspondiente
     if (tipo === "reporteZ") {
       console.log("[OCR] Enviando texto al parser de Reporte Z");
       return parseReporteZ(texto);

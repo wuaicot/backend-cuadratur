@@ -11,35 +11,41 @@ export class OCRService {
     tipo: "caja" | "cocina" | "reporteZ"
   ): Promise<ParsedPlanilla | ParsedReporteZ> {
 
-    console.log(`[OCR] Iniciando procesamiento para tipo='${tipo}' - archivo=${file.originalname}`);
+    if (!file?.buffer) {
+      throw new Error("El archivo no contiene buffer. Revisa Multer memoryStorage.");
+    }
 
-    // 1. Preprocesamiento desde Buffer → PNG temporal
-    const cleanedPath = await preprocessImageFromBuffer(file.buffer, file.originalname);
+    console.log(`[OCR] Procesando tipo='${tipo}' archivo='${file.originalname}'`);
+
+    // 1. Pre-procesar imagen desde buffer → PNG limpio temporal
+    const cleanedPath = await preprocessImageFromBuffer(
+      file.buffer,
+      file.originalname
+    );
 
     console.log("[OCR] Ejecutando Tesseract sobre:", cleanedPath);
 
-    // 2. OCR con Tesseract
+    // 2. OCR Tesseract
     const { data } = await Tesseract.recognize(cleanedPath, "spa", {
       logger: () => {}
     });
 
-    console.log("[OCR] Texto RAW obtenido:\n", data.text);
+    console.log("[OCR] RAW TEXT:\n", data.text);
 
-    // 3. Normalización antes de enviarlo al parser
     const texto = data.text
       .replace(/[ \t]+/g, " ")
       .replace(/\r/g, "")
       .trim();
 
-    console.log("[OCR] Texto NORMALIZADO:\n", texto);
+    console.log("[OCR] TEXTO NORMALIZADO:\n", texto);
 
-    // 4. Envío al parser correspondiente
+    // 3. Elegir parser
     if (tipo === "reporteZ") {
-      console.log("[OCR] Enviando texto al parser de Reporte Z");
+      console.log("[OCR] Parser: Reporte Z");
       return parseReporteZ(texto);
     }
 
-    console.log("[OCR] Enviando texto al parser de Planilla:", tipo);
+    console.log("[OCR] Parser: Planilla", tipo);
     return parsePlanilla(texto, tipo);
   }
 }

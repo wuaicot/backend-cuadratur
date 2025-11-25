@@ -1,34 +1,25 @@
+// src/ocr/preprocessImage.ts
 import sharp from "sharp";
-import fs from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
 
 /**
- * Preprocesa una imagen desde un Buffer y devuelve una ruta temporal
- * lista para ser procesada por Tesseract.
+ * Preprocesa una imagen desde un Buffer y devuelve otro Buffer
+ * totalmente procesado para que Tesseract lo procese directamente.
+ * SIN archivos temporales → 0% ENOENT.
  */
 export async function preprocessImageFromBuffer(
-  buffer: Buffer,
-  originalName: string
-): Promise<string> {
-  const tempName = `${Date.now()}-${randomUUID()}-${originalName}`;
-  const tempPath = path.join("/tmp", tempName);
-  const outPath = tempPath.replace(path.extname(tempPath), "_cleaned.png");
+  buffer: Buffer
+): Promise<Buffer> {
+  const input = sharp(buffer);
+  const metadata = await input.metadata();
 
-  // Guardar imagen original temporal
-  await fs.writeFile(tempPath, buffer);
-
-  // Procesamiento Sharp
-  const inputImage = sharp(buffer);
-  const metadata = await inputImage.metadata();
   const needsUpscale = (metadata.width ?? 0) < 1000;
 
-  let processed = inputImage;
+  let processed = input;
 
   if (needsUpscale) {
     processed = processed.resize({
       width: 1500,
-      kernel: "lanczos3"
+      kernel: sharp.kernel.lanczos3,
     });
   }
 
@@ -40,8 +31,7 @@ export async function preprocessImageFromBuffer(
     .linear(1.1, -20)
     .threshold(128);
 
-  // Imagen procesada → disco
-  await processed.toFile(outPath);
-
-  return outPath;
+  // DEVOLVER BUFFER → no escribir a disco nunca más
+  const outputBuffer = await processed.toBuffer();
+  return outputBuffer;
 }

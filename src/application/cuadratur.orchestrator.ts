@@ -63,6 +63,10 @@ export class CuadraturOrchestrator {
       ventas: Array<{ codigo: string; cantidad: number; descripcion?: string }>;
     };
 
+    console.log("--- INICIO: Datos extraídos del Reporte Z ---");
+    console.table(reporteZParsed.ventas);
+    console.log("--- FIN: Datos extraídos del Reporte Z ---");
+
     const cocinaParsed = (await this.ocr.procesarImagen(
       planillaCocina,
       "cocina"

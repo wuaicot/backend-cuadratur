@@ -10,6 +10,7 @@ export type MenuDef = {
   ingredientes: IngredienteDef[];
 };
 export type BebestibleDef = { codigo: string; nombre: string; unidad?: string };
+export type EmpanadaDef = MenuDef;
 
 export const BEBESTIBLES: Record<string, BebestibleDef> = {
   "4221": { codigo: "4221", nombre: "SCHOP QUILMES 500CC", unidad: "unidad" },
@@ -25,6 +26,19 @@ export const BEBESTIBLES: Record<string, BebestibleDef> = {
   "4602": { codigo: "4602", nombre: "TE GRANDE", unidad: "unidad" },
   "4869": { codigo: "4869", nombre: "PROMO SCHOP 2X1", unidad: "unidad" },
   // agrega más si se requiere...
+};
+
+export const EMPANADAS: Record<string, EmpanadaDef> = {
+  // Ejemplo:
+  // "3601": {
+  //   codigo: "3601",
+  //   nombre: "EMP CAMARON QUESO FR",
+  //   ingredientes: [
+  //     { nombre: "Masa empanada", cantidad: 1 },
+  //     { nombre: "Camarones", cantidad: 100, unidad: "gr" },
+  //     { nombre: "Queso", cantidad: 50, unidad: "gr" },
+  //   ],
+  // },
 };
 
 export const MENUS: Record<string, MenuDef> = {

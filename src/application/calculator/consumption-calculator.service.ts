@@ -1,11 +1,19 @@
-import { ParsedSheet } from "../parser/types";
-import { CalculatedData } from "../../domain/calculated/calculated.entity";
+import { ParsedReporteZ } from "../../ocr/types";
+
+export interface CalculatedItem {
+  producto: string;
+  cantidadTeorica: number;
+}
+
+export interface CalculatedData {
+  results: CalculatedItem[];
+}
 
 export class ConsumptionCalculatorService {
-  compute(sheet: ParsedSheet): CalculatedData {
-    const results = sheet.rows.map((row) => ({
-      producto: row.producto,
-      cantidadTeorica: row.cantidad * 1.15, // Ej. +15% mermas
+  compute(reporteZ: ParsedReporteZ): CalculatedData {
+    const results = reporteZ.ventas.map(v => ({
+      producto: v.descripcion,
+      cantidadTeorica: v.cantidad * 1.15 // ejemplo mermas +15%
     }));
 
     return { results };

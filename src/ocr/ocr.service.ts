@@ -17,15 +17,11 @@ export class OCRService {
 
     console.log(`[OCR] Procesando tipo='${tipo}' archivo='${file.originalname}'`);
 
-    // 1. Pre-procesar imagen desde buffer → PNG limpio temporal
-    const cleanedPath = await preprocessImageFromBuffer(
-      file.buffer,
-      file.originalname
-    );
+    const cleanedPath = await preprocessImageFromBuffer(file.buffer);
+
 
     console.log("[OCR] Ejecutando Tesseract sobre:", cleanedPath);
 
-    // 2. OCR Tesseract
     const { data } = await Tesseract.recognize(cleanedPath, "spa", {
       logger: () => {}
     });
@@ -39,7 +35,6 @@ export class OCRService {
 
     console.log("[OCR] TEXTO NORMALIZADO:\n", texto);
 
-    // 3. Elegir parser
     if (tipo === "reporteZ") {
       console.log("[OCR] Parser: Reporte Z");
       return parseReporteZ(texto);

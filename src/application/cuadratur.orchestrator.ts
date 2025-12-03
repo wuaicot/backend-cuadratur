@@ -319,6 +319,7 @@ export class CuadraturOrchestrator {
   }
 
   // --- preserve processImage por compatibilidad interna si se usa en otros puntos ---
+  /*
   async processImage(
     file: Express.Multer.File,
     tipo: "caja" | "cocina" | "reporteZ"
@@ -339,4 +340,5 @@ export class CuadraturOrchestrator {
     };
     return { rawText, normalized, parsed, calculated, reconciled };
   }
+  */
 }

@@ -2,36 +2,43 @@
 import sharp from "sharp";
 
 /**
- * Preprocesa una imagen desde un Buffer y devuelve otro Buffer
- * totalmente procesado para que Tesseract lo procese directamente.
- * SIN archivos temporales → 0% ENOENT.
+ * Preprocesa una imagen desde un Buffer y devuelve un Buffer optimizado para OCR.
+ * NO usa archivos temporales.
+ * Totalmente compatible con OCRService.procesarImagen().
  */
 export async function preprocessImageFromBuffer(
   buffer: Buffer
 ): Promise<Buffer> {
-  const input = sharp(buffer);
-  const metadata = await input.metadata();
+  try {
+    const input = sharp(buffer);
+    const metadata = await input.metadata();
 
-  const needsUpscale = (metadata.width ?? 0) < 1000;
+    // Upscaling si la imagen es pequeña
+    const needsUpscale = (metadata.width ?? 0) < 1000;
 
-  let processed = input;
+    let processed = input;
 
-  if (needsUpscale) {
-    processed = processed.resize({
-      width: 1500,
-      kernel: sharp.kernel.lanczos3,
-    });
+    if (needsUpscale) {
+      processed = processed.resize({
+        width: 1500,
+        kernel: sharp.kernel.lanczos3,
+      });
+    }
+
+    // Limpieza óptima para texto del Reporte Z y Planillas
+    processed = processed
+      .normalize()      // Mejora contraste global
+      .gamma(1.2)       // Aclara zonas oscuras
+      .grayscale()      // Convierte a blanco y negro
+      .median(1)        // Reduce puntos de ruido
+      .linear(1.1, -20) // Ajuste de brillo/contraste fino
+      .threshold(128);  // Binarización → Tesseract eficiente
+
+    // Salida final para Tesseract
+    return await processed.toBuffer();
+
+  } catch (error) {
+    console.error("[OCR] Error al preprocesar:", error);
+    throw new Error("Error interno al preprocesar imagen.");
   }
-
-  processed = processed
-    .normalize()
-    .gamma(1.2)
-    .grayscale()
-    .median(1)
-    .linear(1.1, -20)
-    .threshold(128);
-
-  // DEVOLVER BUFFER → no escribir a disco nunca más
-  const outputBuffer = await processed.toBuffer();
-  return outputBuffer;
 }

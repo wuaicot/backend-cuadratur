@@ -1,4 +1,4 @@
-import { NormalizedData } from "../../domain/normalized/normalized.entity";
+import { NormalizedData } from "../../domain/normalized";
 
 export class NormalizerService {
   normalize(rawText: string): NormalizedData {

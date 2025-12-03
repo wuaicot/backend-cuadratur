@@ -17,13 +17,12 @@ export class OCRService {
 
     console.log(`[OCR] Procesando tipo='${tipo}' archivo='${file.originalname}'`);
 
-    const cleanedPath = await preprocessImageFromBuffer(file.buffer);
+    const cleanedBuffer = await preprocessImageFromBuffer(file.buffer);
 
+    console.log("[OCR] Ejecutando Tesseract sobre BUFFER");
 
-    console.log("[OCR] Ejecutando Tesseract sobre:", cleanedPath);
-
-    const { data } = await Tesseract.recognize(cleanedPath, "spa", {
-      logger: () => {}
+    const { data } = await Tesseract.recognize(cleanedBuffer, "spa", {
+      logger: () => {},
     });
 
     console.log("[OCR] RAW TEXT:\n", data.text);

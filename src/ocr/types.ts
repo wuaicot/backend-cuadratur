@@ -19,3 +19,12 @@ export interface ParsedReporteZ {
     cantidad: number;
   }[];
 }
+
+export interface PlanillaCocinaParsed {
+  [ingredientName: string]: {
+    INIC: number[];
+    ENTR: number[];
+    DEV: number[];
+    FIN: number[];
+  };
+}

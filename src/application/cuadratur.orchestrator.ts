@@ -4,6 +4,7 @@ import { NormalizerService } from "./normalizer/normalizer.service";
 import { ParserService } from "./parser/parser.service";
 import { ConsumptionCalculatorService } from "./calculator/consumption-calculator.service";
 import { ReconciliatorService } from "./reconciliator/reconciliator.service";
+import { ParsedPlanilla, ParsedReporteZ, PlanillaCocinaParsed } from "../ocr/types"; // Import the new type
 
 import { MENUS } from "../data/inventario"; // importa tu inventario real
 
@@ -70,7 +71,7 @@ export class CuadraturOrchestrator {
     const cocinaParsed = (await this.ocr.procesarImagen(
       planillaCocina,
       "cocina"
-    )) as { tipo?: string; fecha?: Date; items: ParsedPlanillaItemLike[] };
+    )) as PlanillaCocinaParsed;
 
     const cajaParsed = (await this.ocr.procesarImagen(
       planillaCaja,
@@ -108,103 +109,31 @@ export class CuadraturOrchestrator {
       })
     );
 
-    // 4) Extraer consumos (o sobrantes) desde la planilla de cocina.
-    // Heurística para leer columnas: cada item puede contener keys distintas por el parser.
-    // Intentamos obtener: saldo_inicial, entrada, devoluc, saldo_final.
-    function readNumberFromItem(
-      item: ParsedPlanillaItemLike,
-      candidates: string[]
-    ): number {
-      for (const k of candidates) {
-        if (Object.prototype.hasOwnProperty.call(item, k)) {
-          const v = item[k];
-          if (v === undefined || v === null) continue;
-          const n = Number(
-            String(v)
-              .replace(/[^0-9\-,.]+/g, "")
-              .replace(",", ".")
-          );
-          if (!Number.isNaN(n)) return n;
-        }
+    // 4) Extraer consumos (o sobrantes) desde la planilla de cocina del nuevo formato grid.
+    //    Ahora cocinaParsed es PlanillaCocinaParsed
+    const consumoPorIngredienteGrid: Record<
+      string,
+      { saldoInicial: number; entradas: number; devoluciones: number; saldoFinal: number }
+    > = {};
+
+    for (const ingredientName in cocinaParsed) {
+      if (Object.prototype.hasOwnProperty.call(cocinaParsed, ingredientName)) {
+        const data = cocinaParsed[ingredientName];
+        const sumQuantities = (quantities: number[]) => quantities.reduce((acc, curr) => acc + curr, 0);
+
+        const saldoInicial = sumQuantities(data.INIC);
+        const entradas = sumQuantities(data.ENTR);
+        const devoluciones = sumQuantities(data.DEV);
+        const saldoFinal = sumQuantities(data.FIN);
+
+        consumoPorIngredienteGrid[ingredientName] = {
+          saldoInicial,
+          entradas,
+          devoluciones,
+          saldoFinal,
+        };
       }
-      return 0;
     }
-
-    // Normalizar nombres de fila para mapear
-    function normalizeName(s: string): string {
-      return (s || "").toString().trim().toLowerCase();
-    }
-
-    // Construir mapa de planilla: nombre -> item
-    const planillaItems = (cocinaParsed.items || []).map((it) => {
-      // detect probable name key
-      const probableNameKeyCandidates = [
-        "nombre",
-        "mercaderia",
-        "producto",
-        "item",
-        "articulo",
-        "descripcion",
-        "desc",
-      ];
-      let name = "";
-      for (const k of probableNameKeyCandidates) {
-        if (it[k]) {
-          name = String(it[k]);
-          break;
-        }
-      }
-      // fallback: tomar primer string property
-      if (!name) {
-        for (const k of Object.keys(it)) {
-          if (typeof it[k] === "string" && it[k].trim().length > 0) {
-            name = it[k];
-            break;
-          }
-        }
-      }
-
-      // lectores para números en distintos formatos
-      const saldoInicial = readNumberFromItem(it, [
-        "saldo",
-        "saldo_inicial",
-        "saldoInicial",
-        "saldo1",
-        "saldo_ant",
-        "saldo_anteriores",
-        "cantidad_inicio",
-      ]);
-      const entrada = readNumberFromItem(it, [
-        "entrada",
-        "entradas",
-        "ingreso",
-        "ingresos",
-      ]);
-      const devoluc = readNumberFromItem(it, [
-        "devoluc",
-        "devolucion",
-        "devoluciones",
-        "devoluciones",
-      ]);
-      const saldoFinal = readNumberFromItem(it, [
-        "saldo_final",
-        "saldoFinal",
-        "saldo2",
-        "saldo_planchero",
-        "saldo_planchero1",
-        "saldo_actual",
-        "total",
-      ]);
-
-      return {
-        raw: it,
-        name: String(name || "").trim(),
-        saldoInicial,
-        entrada,
-        devoluc,
-        saldoFinal,
-      };
-    });
 
     // 5) Para cada ingrediente del inventario, buscar registro en planilla y calcular consumo
     const ingredientAnalysis: Record<
@@ -219,68 +148,16 @@ export class CuadraturOrchestrator {
       };
     });
 
-    // Mapeo por normalizado para buscar más fácil
-    const planillaByNameNorm: Record<string, (typeof planillaItems)[0][]> = {};
-    planillaItems.forEach((row) => {
-      const key = normalizeName(row.name);
-      if (!planillaByNameNorm[key]) planillaByNameNorm[key] = [];
-      planillaByNameNorm[key].push(row);
-    });
-
-    // Matching simple: for each ingredient name, try exact normalized match, otherwise try includes() search
-    const allPlanillaRows = planillaItems;
-
     Object.keys(ingredientAnalysis).forEach((ingred) => {
-      const normIngred = normalizeName(ingred);
-
-      // matchedRow puede ser null inicialmente
-      let matchedRow:
-        | {
-            raw: ParsedPlanillaItemLike;
-            name: string;
-            saldoInicial: number;
-            entrada: number;
-            devoluc: number;
-            saldoFinal: number;
-          }
-        | null = null;
-
-      // 1) exact
-      if (planillaByNameNorm[normIngred] && planillaByNameNorm[normIngred].length > 0) {
-        matchedRow = planillaByNameNorm[normIngred][0];
+      const consumoGridData = consumoPorIngredienteGrid[ingred];
+      if (consumoGridData) {
+        const consumo =
+          consumoGridData.saldoInicial +
+          consumoGridData.entradas -
+          consumoGridData.devoluciones -
+          consumoGridData.saldoFinal;
+        ingredientAnalysis[ingred].contadoRaw = consumo;
       }
-
-      // 2) includes search (insensitive)
-      if (!matchedRow) {
-        const found = allPlanillaRows.find((r) =>
-          normalizeName(r.name).includes(normIngred)
-        );
-        if (found) matchedRow = found;
-      }
-
-      // 3) reverse includes (ingredient name contains planilla token)
-      if (!matchedRow) {
-        const found = allPlanillaRows.find((r) =>
-          normIngred.includes(normalizeName(r.name))
-        );
-        if (found) matchedRow = found;
-      }
-
-      // 4) fallback robusto tipado (nunca undefined)
-      if (!matchedRow) {
-        matchedRow = {
-          raw: {},
-          name: ingred,
-          saldoInicial: 0,
-          entrada: 0,
-          devoluc: 0,
-          saldoFinal: 0,
-        };
-      }
-
-      const consumo =
-        matchedRow.saldoInicial + matchedRow.entrada - matchedRow.devoluc - matchedRow.saldoFinal;
-      ingredientAnalysis[ingred].contadoRaw = consumo; // puede ser negativo (sobrante)
     });
 
     // 6) Construir lista final de AnalysisItem

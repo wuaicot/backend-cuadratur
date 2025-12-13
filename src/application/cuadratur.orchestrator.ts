@@ -1,4 +1,5 @@
 // src/application/cuadratur.orchestrator.ts
+import { PrismaClient } from "@prisma/client";
 import { OCRService } from "../ocr/ocr.service";
 import { NormalizerService } from "./normalizer/normalizer.service";
 import { ParserService } from "./parser/parser.service";
@@ -6,7 +7,7 @@ import { ConsumptionCalculatorService } from "./calculator/consumption-calculato
 import { ReconciliatorService } from "./reconciliator/reconciliator.service";
 import { ParsedPlanilla, ParsedReporteZ, PlanillaCocinaParsed } from "../ocr/types"; // Import the new type
 
-import { MENUS } from "../data/inventario"; // importa tu inventario real
+// No longer importing MENUS from inventario.ts
 
 type MenuDef = {
   codigo: string;
@@ -30,6 +31,7 @@ export class CuadraturOrchestrator {
   private readonly parser: ParserService;
   private readonly calculator: ConsumptionCalculatorService;
   private readonly reconciliator: ReconciliatorService;
+  private readonly prisma: PrismaClient;
 
   constructor() {
     this.ocr = new OCRService();
@@ -37,6 +39,7 @@ export class CuadraturOrchestrator {
     this.parser = new ParserService();
     this.calculator = new ConsumptionCalculatorService();
     this.reconciliator = new ReconciliatorService();
+    this.prisma = new PrismaClient();
   }
 
   /**
@@ -78,6 +81,30 @@ export class CuadraturOrchestrator {
       "caja"
     )) as { tipo?: string; fecha?: Date; items: ParsedPlanillaItemLike[] };
 
+    // Fetch products and their recipes from the database
+    const productosConRecetas = await this.prisma.producto.findMany({
+      include: {
+        recetas: {
+          include: {
+            ingrediente: true,
+          },
+        },
+      },
+    });
+
+    // Transform products into a map similar to MENUS for easier integration
+    const menusFromDb: Record<string, MenuDef> = {};
+    productosConRecetas.forEach(producto => {
+      menusFromDb[producto.codigoZ] = {
+        codigo: producto.codigoZ,
+        nombre: producto.nombre,
+        ingredientes: producto.recetas.map(receta => ({
+          nombre: receta.ingrediente.nombre,
+          cantidad: receta.cantidad,
+        })),
+      };
+    });
+
     // 1) Construir mapa de ventas por codigo desde reporte Z
     const ventasPorCodigo: Record<string, number> = {};
     (reporteZParsed.ventas || []).forEach((v) => {
@@ -89,7 +116,7 @@ export class CuadraturOrchestrator {
     // 2) Calcular teorico por ingrediente basado en MENUS + ventas
     const teoricoPorIngrediente: Record<string, number> = {};
 
-    Object.values(MENUS as Record<string, MenuDef>).forEach((menu) => {
+    Object.values(menusFromDb).forEach((menu) => {
       const ventas = ventasPorCodigo[menu.codigo] || 0;
       if (ventas <= 0) return;
       (menu.ingredientes || []).forEach((ing) => {
@@ -101,7 +128,7 @@ export class CuadraturOrchestrator {
     });
 
     // 3) Agregar ingredientes que aparezcan en MENUS pero con 0 ventas (para listado completo)
-    Object.values(MENUS as Record<string, MenuDef>).forEach((m) =>
+    Object.values(menusFromDb).forEach((m) =>
       (m.ingredientes || []).forEach((ing) => {
         if (!teoricoPorIngrediente[ing.nombre]) {
           teoricoPorIngrediente[ing.nombre] = 0;
@@ -182,9 +209,41 @@ export class CuadraturOrchestrator {
     // Orden opcional: mostrar primero con mayor diferencia absoluta
     finalItems.sort((a, b) => Math.abs(b.diferencia) - Math.abs(a.diferencia));
 
+    // 7) Persistir el análisis en la base de datos
+    // Find or create the user
+    let user = await this.prisma.usuario.findUnique({
+      where: { nombre: params.usuario },
+    });
+
+    if (!user) {
+      user = await this.prisma.usuario.create({
+        data: { nombre: params.usuario },
+      });
+    }
+
+    const analysisDate = reporteZParsed.fecha ? new Date(reporteZParsed.fecha) : new Date();
+    // Assuming 'turno' could be part of reporteZParsed or derived. For now, leaving it optional.
+    const analysisTurno = undefined; // Or extract from reporteZParsed if available
+
+    await this.prisma.analisis.create({
+      data: {
+        fecha: analysisDate,
+        data: {
+          items: finalItems,
+          origen: {
+            reporteZ: reporteZParsed,
+            planillaCocina: cocinaParsed,
+            planillaCaja: cajaParsed,
+          },
+        },
+        turno: analysisTurno,
+        usuarioId: user.id, // Link to the user
+      },
+    });
+
     // Respuesta lista para frontend
     return {
-      fecha: new Date().toISOString(),
+      fecha: analysisDate.toISOString(),
       usuario: params.usuario,
       items: finalItems,
       origen: {

@@ -1,36 +1,14 @@
 // src/api/cuadratur.controller.ts
 import { Request, Response } from "express";
-
-// IMPORTACIÓN FIJA Y CORRECTA DEL ORCHESTRATOR
-import { CuadraturOrchestrator as OrchestratorClass } from "../application/cuadratur.orchestrator";
-
-let orchestrator: any;
-
-// Intentar instanciar. Si falla, usar mock.
-try {
-  orchestrator = new OrchestratorClass();
-} catch (error) {
-  console.error(
-    "Error CRÍTICO: No se pudo cargar CuadraturOrchestrator. Usando implementación mock.",
-    error
-  );
-
-  class MockOrchestrator {
-    async ejecutar() {
-      return { fecha: new Date().toISOString(), items: [] };
-    }
-    historial() {
-      return [];
-    }
-    obtenerAnalisis() {
-      return null;
-    }
-  }
-
-  orchestrator = new MockOrchestrator();
-}
+import { CuadraturOrchestrator } from "../application/cuadratur.orchestrator"; // Changed import
 
 export class CuadraturController {
+  private readonly orchestrator: CuadraturOrchestrator; // Declared as class property
+
+  constructor() {
+    this.orchestrator = new CuadraturOrchestrator(); // Instantiated in constructor
+  }
+
   async analizar(req: Request, res: Response) {
     try {
       const files = req.files as {
@@ -48,29 +26,56 @@ export class CuadraturController {
         });
       }
 
-      const result = await orchestrator.ejecutar({
+      const result = await this.orchestrator.ejecutar({ // Changed to this.orchestrator
         files: {
           reporteZ: reporteZFile,
           planillaCaja: planillaCajaFile,
           planillaCocina: planillaCocinaFile,
         },
-        usuario: "admin",
+        usuario: "admin", // User handling will be addressed in a later phase
       });
 
       res.json(result);
     } catch (err: unknown) {
       const errorMessage =
         err instanceof Error ? err.message : "Error desconocido.";
-      res.status(400).json({ error: errorMessage });
+      console.error("Error in CuadraturController.analizar:", err); // Log the actual error
+      res.status(500).json({ error: "Ocurrió un error interno al procesar el análisis." }); // More robust error response
     }
   }
 
-  async historial(_: Request, res: Response) {
-    res.json(orchestrator.historial());
+  async historial(req: Request, res: Response) {
+    try {
+      // This needs to be implemented properly, fetching from the database.
+      // For now, it will return an empty array or handle through the orchestrator.
+      // Assuming orchestrator.historial() now fetches from DB
+      const history = await this.orchestrator.historial(); 
+      res.json(history);
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error desconocido.";
+      console.error("Error in CuadraturController.historial:", err);
+      res.status(500).json({ error: "Ocurrió un error interno al obtener el historial." });
+    }
   }
 
   async obtener(req: Request, res: Response) {
-    const id = Number(req.params.id);
-    res.json(orchestrator.obtenerAnalisis(id));
+    try {
+      const id = Number(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: "El ID proporcionado no es un número válido." });
+      }
+      // Assuming orchestrator.obtenerAnalisis(id) now fetches from DB
+      const analysis = await this.orchestrator.obtenerAnalisis(id);
+      if (!analysis) {
+        return res.status(404).json({ error: "Análisis no encontrado." });
+      }
+      res.json(analysis);
+    } catch (err: unknown) {
+      const errorMessage =
+        err instanceof Error ? err.message : "Error desconocido.";
+      console.error("Error in CuadraturController.obtener:", err);
+      res.status(500).json({ error: "Ocurrió un error interno al obtener el análisis." });
+    }
   }
 }

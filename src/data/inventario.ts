@@ -72,7 +72,7 @@ export const MENUS: Record<string, MenuDef> = {
     nombre: "COM ITALIANO GIGANTE",
     ingredientes: [
       { nombre: "Pan mesa Gigante", cantidad: 1 },
-      { nombre: "Vienesa doggi", cantidad: 1 },
+      { nombre: "Vienesas doggi", cantidad: 1 },
     ],
   },
   "0302": {
@@ -80,7 +80,7 @@ export const MENUS: Record<string, MenuDef> = {
     nombre: "COM COMPLETO GIGANTE",
     ingredientes: [
       { nombre: "Pan mesa Gigante", cantidad: 1 },
-      { nombre: "Vienesa doggi", cantidad: 1 },
+      { nombre: "Vienesas doggi", cantidad: 1 },
     ],
   },
   "0303": {
@@ -88,7 +88,7 @@ export const MENUS: Record<string, MenuDef> = {
     nombre: "COM CATALANA GIGANTE",
     ingredientes: [
       { nombre: "Pan mesa Gigante", cantidad: 1 },
-      { nombre: "Vienesa doggi", cantidad: 1 },
+      { nombre: "Vienesas doggi", cantidad: 1 },
     ],
   },
   "0502": {
@@ -143,7 +143,7 @@ export const MENUS: Record<string, MenuDef> = {
     codigo: "1502",
     nombre: "LOMO COMPLETO PER",
     ingredientes: [
-      { nombre: "Pan fricas", cantidad: 1 },
+      { nombre: "Pan FRICAS", cantidad: 1 },
       { nombre: "Lomo Personal", cantidad: 2 },
     ],
   },
@@ -151,7 +151,7 @@ export const MENUS: Record<string, MenuDef> = {
     codigo: "1503",
     nombre: "LOMO CHACARE PER",
     ingredientes: [
-      { nombre: "Pan fricas", cantidad: 1 },
+      { nombre: "Pan FRICAS", cantidad: 1 },
       { nombre: "Lomo Personal", cantidad: 1 },
     ],
   },
@@ -159,7 +159,7 @@ export const MENUS: Record<string, MenuDef> = {
     codigo: "1901",
     nombre: "POLLO ITALIANO PER",
     ingredientes: [
-      { nombre: "Pan fricas", cantidad: 1 },
+      { nombre: "Pan FRICAS", cantidad: 1 },
       { nombre: "Ave Personal", cantidad: 1 },
     ],
   },
@@ -167,7 +167,7 @@ export const MENUS: Record<string, MenuDef> = {
     codigo: "1903",
     nombre: "POLLO CHACARE PER",
     ingredientes: [
-      { nombre: "Pan fricas", cantidad: 1 },
+      { nombre: "Pan FRICAS", cantidad: 1 },
       { nombre: "Ave Personal", cantidad: 1 },
     ],
   },
@@ -175,7 +175,7 @@ export const MENUS: Record<string, MenuDef> = {
     codigo: "1908",
     nombre: "POLLO OBELISCO PER",
     ingredientes: [
-      { nombre: "Pan fricas", cantidad: 1 },
+      { nombre: "Pan FRICAS", cantidad: 1 },
       { nombre: "Ave Personal", cantidad: 1 },
     ],
   },
@@ -291,18 +291,20 @@ export const INGREDIENTES_MASTER: Record<
   "Chorizo": { nombre: "Chorizo", unidad: "un" },
   "Vienesas personal": { nombre: "Vienesas personal", unidad: "un" },
   "Vienesas doggi": { nombre: "Vienesas doggi", unidad: "un" },
+  "Pan mesa Personal": { nombre: "Pan mesa Personal", unidad: "un" },
   "Pan mesa súper Gigan.": { nombre: "Pan mesa súper Gigan.", unidad: "un" },
   "Pan mesa Gigante": { nombre: "Pan mesa Gigante", unidad: "un" },
   "Pan Brioche 12": { nombre: "Pan Brioche 12", unidad: "un" },
-  "Pan hallulon": { nombre: "Pan hallullon", unidad: "un" },
+  "Pan hallullon": { nombre: "Pan hallullon", unidad: "un" },
   "Papas grandes 700gr": { nombre: "Papas grandes 700gr", unidad: "unidad" },
   "Papas personal 350gr": { nombre: "Papas personal 350gr", unidad: "unidad" },
   "Hamb. Personal": { nombre: "Hamb. Personal", unidad: "un" },
   "Churrasc Gigante": { nombre: "Churrasc Gigante", unidad: "un" },
-  "Churrasc Personal": { nombre: "Churrasc Gigante", unidad: "un" },
+  "Churrasc Personal": { nombre: "Churrasc Personal", unidad: "un" },
   "Lomo Personal": { nombre: "Lomo Personal", unidad: "un" },
   "Ave Personal": { nombre: "Ave Personal", unidad: "un" },
   "Ave Gigante": { nombre: "Ave Gigante", unidad: "un" },
   "Queso laminado": { nombre: "Queso laminado", unidad: "un" },
+  "Pan FRICAS": { nombre: "Pan FRICAS", unidad: "un" },
   
 };

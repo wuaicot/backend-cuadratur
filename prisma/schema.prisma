@@ -4,13 +4,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Usuario {
   id       Int      @id @default(autoincrement())
-  nombre   String
+  nombre   String   @unique
   creadoEn DateTime @default(now())
   turnos   Turno[]
+  analisis Analisis[]
 }
 
 model Turno {
@@ -89,5 +91,7 @@ model Analisis {
   fecha     DateTime
   data      Json
   turno     String?
+  usuarioId Int
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
   createdAt DateTime @default(now())
 }
